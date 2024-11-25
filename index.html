@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<!-- 이전 헤드 섹션과 스타일은 동일 -->
+<body>
+    <!-- 네비게이션 바는 메인 페이지와 동일 -->
+
+    <main class="main-content">
+        <h1>단어 학습</h1>
+
+        <!-- 플래시카드 -->
+        <div class="flashcard-container">
+            <div class="flashcard" id="flashcard">
+                <div class="flashcard-front">
+                    단어를 추가해주세요
+                </div>
+                <div class="flashcard-back">
+                    Add words to start
+                </div>
+            </div>
+        </div>
+
+        <!-- 학습 컨트롤 -->
+        <div class="study-controls" style="text-align: center; margin: 1rem 0;">
+            <button onclick="previousCard()" class="nav-button">⬅️ 이전</button>
+            <button onclick="nextCard()" class="nav-button">다음 ➡️</button>
+        </div>
+
+        <!-- 단어장 관리 -->
+        <div class="vocabulary-manager">
+            <h2>내 단어장</h2>
+            <div class="word-form">
+                <input type="text" id="wordEn" placeholder="영어 단어">
+                <input type="text" id="wordKo" placeholder="한글 뜻">
+                <button onclick="addWord()">추가</button>
+            </div>
+            <ul class="word-list" id="wordList">
+                <!-- 동적으로 추가됨 -->
+            </ul>
+        </div>
+
+        <!-- 퀴즈 모드 -->
+        <div class="quiz-container">
+            <h2>퀴즈 모드</h2>
+            <div id="quizContent" style="margin: 1rem 0;">
+                <p id="quizQuestion">퀴즈를 시작하려면 단어를 먼저 추가해주세요.</p>
+                <div class="quiz-options">
+                    <div class="quiz-option" onclick="checkAnswer(0)">옵션 1</div>
+                    <div class="quiz-option" onclick="checkAnswer(1)">옵션 2</div>
+                    <div class="quiz-option" onclick="checkAnswer(2)">옵션 3</div>
+                    <div class="quiz-option" onclick="checkAnswer(3)">옵션 4</div>
+                </div>
+            </div>
+            <button onclick="startQuiz()" class="start-quiz">퀴즈 시작</button>
+        </div>
+    </main>
+
+    <script>
+        // 단어장 데이터 관리
+        let vocabulary = JSON.parse(localStorage.getItem('vocabulary')) || [];
+        let currentCardIndex = 0;
+        let quizMode = false;
+        let currentQuiz = null;
+
+        // 플래시카드 뒤집기
+        const flashcard = document.getElementById('flashcard');
+        flashcard.addEventListener('click', () => {
+            if (!quizMode) {
+                flashcard.classList.toggle('flipped');
+            }
+        });
+
+        // 단어 추가 함수
+        function addWord() {
+            const wordEn = document.getElementById('wordEn').value.trim();
+            const wordKo = document.getElementById('wordKo').value.trim();
+            
+            if (wordEn && wordKo) {
+                const newWord = { english: wordEn, korean: wordKo };
+                vocabulary.push(newWord);
+                localStorage.setItem('vocabulary', JSON.stringify(vocabulary));
+                updateWordList();
+                updateFlashcard();
+                
+                // 입력 필드 초기화
+                document.getElementById('wordEn').value = '';
+                document.getElementById('wordKo').value = '';
+            }
+        }
+
+        // 단어 삭제 함수
+        function deleteWord(index) {
+            vocabulary.splice(index, 1);
+            localStorage.setItem('vocabulary', JSON.stringify(vocabulary));
+            updateWordList();
+            updateFlashcard();
+        }
+
+        // 단어 목록 업데이트
+        function updateWordList() {
+            const wordList = document.getElementById('wordList');
+            wordList.innerHTML = '';
+            
+            vocabulary.forEach((word, index) => {
+                const li = document.createElement('li');
+                li.className = 'word-item';
+                li.innerHTML = `
+                    <span>${word.english} - ${word.korean}</span>
+                    <button onclick="deleteWord(${index})">삭제</button>
+                `;
+                wordList.appendChild(li);
+            });
+        }
+
+        // 플래시카드 업데이트
+        function updateFlashcard() {
+            if (vocabulary.length > 0) {
+                const frontCard = flashcard.querySelector('.flashcard-front');
+                const backCard = flashcard.querySelector('.flashcard-back');
+                frontCard.textContent = vocabulary[currentCardIndex].english;
+                backCard.textContent = vocabulary[currentCardIndex].korean;
+            }
+        }
+
+        // 이전/다음 카드 네비게이션
+        function previousCard() {
+            if (vocabulary.length > 0) {
+                currentCardIndex = (currentCardIndex - 1 + vocabulary.length) % vocabulary.length;
+                updateFlashcard();
+                flashcard.classList.remove('flipped');
+            }
+        }
+
+        function nextCard() {
+            if (vocabulary.length > 0) {
+                currentCardIndex = (currentCardIndex + 1) % vocabulary.length;
+                updateFlashcard();
+                flashcard.classList.remove('flipped');
+            }
+        }
+
+        // 퀴즈 모드 함수들
+        function startQuiz() {
+            if (vocabulary.length < 4) {
+                alert('퀴즈 모드를 시작하려면 최소 4개의 단어가 필요합니다.');
+                return;
+            }
+
+            quizMode = true;
+            generateQuizQuestion();
+        }
+
+        function generateQuizQuestion() {
+            const question = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+            const options = [question.korean];
+            
+            // 오답 보기 생성
+            while (options.length < 4) {
+                const wrongAnswer = vocabulary[Math.floor(Math.random() * vocabulary.length)].korean;
+                if (!options.includes(wrongAnswer)) {
+                    options.push(wrongAnswer);
+                }
+            }
+
+            // 보기 섞기
+            for (let i = options.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [options[i], options[j]] = [options[j], options[i]];
+            }
+
+            currentQuiz = {
+                question: question.english,
+                correct: question.korean,
+                options: options
+            };
+
+            // 퀴즈 화면 업데이트
+            document.getElementById('quizQuestion').textContent = question.english;
+            const optionElements = document.querySelectorAll('.quiz-option');
+            optionElements.forEach((element, index) => {
+                element.textContent = options[index];
+            });
+        }
+
+        function checkAnswer(index) {
+            if (!currentQuiz) return;
+
+            const selected = currentQuiz.options[index];
+            if (selected === currentQuiz.correct) {
+                alert('정답입니다! 👏');
+                generateQuizQuestion();
+            } else {
+                alert('틀렸습니다. 다시 시도해보세요! 💪');
+            }
+        }
+
+        // 초기 로드
+        updateWordList();
+        updateFlashcard();
+    </script>
+</body>
+</html>
